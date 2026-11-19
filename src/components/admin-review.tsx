@@ -1,4 +1,17 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-export function AdminReview({ kind, id }: {kind:'deposits'|'withdrawals';id:string}) { const [error,setError]=useState('');const [busy,setBusy]=useState(false);const router=useRouter();async function review(status:'APPROVED'|'REJECTED'){setBusy(true);setError('');try{const response=await fetch(`/api/admin/${kind}/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});const result=await response.json();if(!response.ok)throw new Error(result.error||'Gagal memproses');router.refresh();}catch(e){setError(e instanceof Error?e.message:'Terjadi kesalahan');}finally{setBusy(false);}}return <>{error&&<span className="muted">{error} </span>}<button className="button small" disabled={busy} onClick={()=>review('APPROVED')}>Setujui</button> <button className="button secondary small" disabled={busy} onClick={()=>review('REJECTED')}>Tolak</button></>; }
+
+type Kind = 'deposits' | 'withdrawals' | 'campaigns';
+export function AdminReview({ kind, id }: { kind: Kind; id: string }) {
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false); const router = useRouter();
+  async function review(status: 'APPROVED' | 'REJECTED' | 'ACTIVE') {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch(`/api/admin/${kind}/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+      const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Gagal memproses');
+      router.refresh();
+    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan'); } finally { setBusy(false); }
+  }
+  return <>{error && <span className="muted">{error} </span>}<button className="button small" disabled={busy} onClick={() => review(kind === 'campaigns' ? 'ACTIVE' : 'APPROVED')}>{kind === 'campaigns' ? 'Aktifkan' : 'Setujui'}</button> <button className="button secondary small" disabled={busy} onClick={() => review('REJECTED')}>Tolak</button></>;
+}

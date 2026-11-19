@@ -1,40 +1,36 @@
 # PTC Ads MVP
 
-A minimal paid-to-click advertising application built with Next.js App Router, Node.js, TypeScript, PostgreSQL, Prisma, and Tailwind CSS. This project intentionally does not use Docker.
+Platform PTC berbasis Next.js, Node.js, TypeScript, PostgreSQL, Prisma, dan Tailwind CSS tanpa Docker dan tanpa payment gateway.
 
-## Included
+## Fitur saat ini
 
-- Email/password registration and login with an HTTP-only signed session cookie.
-- User dashboard and PostgreSQL wallet ledger.
-- Advertiser campaign creation; budget is reserved from the wallet in a database transaction.
-- PTC listing and server-validated view token/timer; rewards are credited through an atomic transaction.
-- Manual deposit requests and withdrawal requests, with admin approval/rejection and refund ledger entries.
-- Admin role setup using a registered email and seed command.
+- Registrasi/login dengan cookie HTTP-only bertanda tangan.
+- Wallet dan ledger transaksi yang memakai transaksi database atomic.
+- Deposit manual memakai nomor referensi/bukti teks dan persetujuan admin.
+- Withdrawal manual dengan penahanan saldo sampai diproses admin; penolakan otomatis mengembalikan saldo.
+- Campaign advertiser: dana dipotong saat dibuat, lalu campaign masuk `PENDING_REVIEW`.
+- Admin dapat menyetujui campaign menjadi `ACTIVE`; campaign ditolak akan mengembalikan budget.
+- PTC view memakai token server, timer, batas satu reward per campaign per hari, dan reward atomic.
+- Audit log untuk tindakan review campaign.
 
-## Requirements
+## Instalasi tanpa Docker
 
-- Node.js 20 or newer
-- PostgreSQL 14 or newer
-- npm
+1. Pastikan Node.js 20+ dan PostgreSQL 14+ tersedia.
+2. Buat database PostgreSQL, misalnya `ptc_ads`.
+3. Salin `.env.example` menjadi `.env`; isi `DATABASE_URL` dan `SESSION_SECRET` minimal 32 karakter.
+4. Jalankan `npm install`.
+5. Jalankan `npm run db:generate` lalu `npm run db:migrate` dan beri nama migrasi `init`.
+6. Jalankan `npm run dev`, buka `http://localhost:3000`, lalu daftar.
+7. Masukkan email akun pada `ADMIN_EMAIL`, kemudian jalankan `npm run db:seed` untuk menjadikannya admin.
 
-## Run locally
+## Alur payment manual
 
-1. Create a PostgreSQL database, for example `ptc_ads`.
-2. Copy `.env.example` to `.env` and set `DATABASE_URL`, a random `SESSION_SECRET` of at least 32 characters, and `ADMIN_EMAIL`.
-3. Install dependencies: `npm install`.
-4. Generate the Prisma client and apply the schema: `npm run db:generate` then `npm run db:migrate`.
-5. Start the app: `npm run dev` and open `http://localhost:3000`.
-6. Register an account using the same address as `ADMIN_EMAIL`, then run `npm run db:seed` to grant the admin role.
+1. User mengajukan deposit dan mengisi metode serta referensi pembayaran.
+2. Admin memeriksa transfer di rekening/e-wallet di luar aplikasi.
+3. Admin menekan `Setujui`; saldo user bertambah dan ledger dibuat.
+4. User mengajukan withdrawal; saldo ditahan ketika permintaan dibuat.
+5. Admin mengirim pembayaran manual di luar aplikasi lalu menyetujui, atau menolak agar saldo dikembalikan.
 
-The first migration command will prompt for a migration name; use `init`.
+## Catatan penting
 
-## Important MVP notes
-
-- Deposits are manual requests only. Admins must independently verify a payment before approving. No payment gateway or automatic payout is wired because provider credentials and merchant configuration are required.
-- The ad view timer is a basic integrity check, not proof that a person watched/read an ad. Before production, add verified captcha/challenge, stricter abuse controls, privacy disclosures, rate limits, email verification, password reset, and payment provider webhooks.
-- Campaign destination URLs are opened in a separate tab. Do not use this system to generate artificial traffic, circumvent ad-provider rules, or advertise prohibited content.
-- Set strong secrets, enable TLS, configure database backups, and complete security and legal review before public launch.
-
-## Database
-
-Prisma schema: `prisma/schema.prisma`. Use `npm run db:migrate` in development and `npm run db:deploy` for production migrations.
+Versi ini belum dapat disebut production-ready 100% tanpa pengujian di environment PostgreSQL nyata. Sebelum publikasi, wajib menambahkan verifikasi email, reset password, rate limiting, CAPTCHA/anti-fraud yang lebih kuat, upload bukti ke object storage, CSRF/origin protection, backup database, TLS, logging/monitoring, kebijakan privasi, dan review legal. Jangan gunakan sistem untuk traffic palsu, mengakali aturan jaringan iklan, atau konten terlarang.
