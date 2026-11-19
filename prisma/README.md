@@ -1,0 +1,1 @@
+Prisma has been removed from the active application. The PostgreSQL schema source is now `/database.sql`; initialization uses `npm run db:init`. Do not use this legacy Prisma schema for new installations. Existing Prisma databases require a planned data export/import; this file is retained only as historical reference.

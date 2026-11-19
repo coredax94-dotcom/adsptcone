@@ -1,32 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { db } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
 import { errorResponse } from '@/lib/http';
-
-const schema = z.object({ status: z.enum(['ACTIVE', 'REJECTED']), note: z.string().trim().max(500).optional() });
-export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const admin = await getCurrentUser();
-  if (!admin) return errorResponse('Silakan masuk.', 401);
-  if (admin.role !== 'ADMIN') return errorResponse('Akses ditolak.', 403);
-  const { id } = await params;
-  const parsed = schema.safeParse(await request.json());
-  if (!parsed.success) return errorResponse('Status tidak valid.');
-  try {
-    await prisma.$transaction(async tx => {
-      const campaign = await tx.campaign.findUnique({ where: { id } });
-      if (!campaign || campaign.status !== 'PENDING_REVIEW') throw new Error('NOT_PENDING');
-      await tx.campaign.update({ where: { id }, data: { status: parsed.data.status, reviewedAt: new Date(), reviewNote: parsed.data.note || null } });
-      if (parsed.data.status === 'REJECTED') {
-        const wallet = await tx.wallet.update({ where: { userId: campaign.ownerId }, data: { balance: { increment: campaign.budgetRemaining } } });
-        await tx.walletTransaction.create({ data: { walletId: wallet.id, userId: campaign.ownerId, amount: campaign.budgetRemaining, type: 'REFUND', description: `Refund campaign ditolak: ${campaign.title}`, idempotencyKey: `campaign-refund:${campaign.id}` } });
-      }
-      await tx.auditLog.create({ data: { actorId: admin.id, action: parsed.data.status === 'ACTIVE' ? 'APPROVE' : 'REJECT', entity: 'CAMPAIGN', entityId: id, metadata: parsed.data.note || null } });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-    return NextResponse.json({ ok: true });
-  } catch (error) {
-    if (error instanceof Error && error.message === 'NOT_PENDING') return errorResponse('Campaign sudah diproses atau tidak ditemukan.', 409);
-    return errorResponse('Tidak dapat memproses campaign.', 500);
-  }
-}
+const schema=z.object({status:z.enum(['ACTIVE','REJECTED']),note:z.string().trim().max(500).optional()});
+export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){const admin=await getCurrentUser();if(!admin)return errorResponse('Silakan masuk.',401);if(admin.role!=='ADMIN')return errorResponse('Akses ditolak.',403);const {id}=await params;const parsed=schema.safeParse(await request.json());if(!parsed.success)return errorResponse('Status tidak valid.');try{await db.transaction(async c=>{const q=await c.query<{owner_id:string;title:string;budget_remaining:string}>('UPDATE campaigns SET status=$1,reviewed_at=NOW(),review_note=$2,updated_at=NOW() WHERE id=$3 AND status=\'PENDING_REVIEW\' RETURNING owner_id,title,budget_remaining::text',[parsed.data.status,parsed.data.note??null,id]);const campaign=q.rows[0];if(!campaign)throw new Error('NOT_PENDING');if(parsed.data.status==='REJECTED'){const w=await c.query<{id:string}>('UPDATE wallets SET balance=balance+$1,updated_at=NOW() WHERE user_id=$2 RETURNING id',[campaign.budget_remaining,campaign.owner_id]);await c.query('INSERT INTO wallet_transactions(wallet_id,user_id,amount,type,description,idempotency_key) VALUES($1,$2,$3,\'REFUND\',$4,$5)',[w.rows[0].id,campaign.owner_id,campaign.budget_remaining,`Refund campaign ditolak: ${campaign.title}`,`campaign-refund:${id}`]);}await c.query('INSERT INTO audit_logs(actor_id,action,entity,entity_id,metadata) VALUES($1,$2,\'CAMPAIGN\',$3,$4)',[admin.id,parsed.data.status==='ACTIVE'?'APPROVE':'REJECT',id,parsed.data.note??null]);});return NextResponse.json({ok:true});}catch(e){if(e instanceof Error&&e.message==='NOT_PENDING')return errorResponse('Campaign sudah diproses atau tidak ditemukan.',409);return errorResponse('Tidak dapat memproses campaign.',500);}}

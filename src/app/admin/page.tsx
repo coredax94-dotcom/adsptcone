@@ -1,20 +1,7 @@
-import { requireAdmin } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/auth';
+import { db } from '@/lib/db';
 import { money } from '@/lib/format';
-import { AdminReview } from '@/components/admin-review';
-
-export default async function AdminPage() {
-  await requireAdmin();
-  const [deposits, withdrawals, campaigns, users, campaignCount] = await Promise.all([
-    prisma.deposit.findMany({ where: { status: 'PENDING' }, include: { user: { select: { email: true, name: true } } }, orderBy: { createdAt: 'asc' }, take: 100 }),
-    prisma.withdrawal.findMany({ where: { status: 'PENDING' }, include: { user: { select: { email: true, name: true } } }, orderBy: { createdAt: 'asc' }, take: 100 }),
-    prisma.campaign.findMany({ where: { status: 'PENDING_REVIEW' }, include: { owner: { select: { email: true, name: true } } }, orderBy: { createdAt: 'asc' }, take: 100 }),
-    prisma.user.count(), prisma.campaign.count(),
-  ]);
-  return <><h1>Admin</h1><p>Verifikasi deposit secara manual sebelum menyetujui saldo. Campaign juga wajib ditinjau sebelum ditayangkan.</p>
-    <div className="grid"><div className="card"><span className="muted">Pengguna</span><div className="stat">{users}</div></div><div className="card"><span className="muted">Total campaign</span><div className="stat">{campaignCount}</div></div><div className="card"><span className="muted">Campaign review</span><div className="stat">{campaigns.length}</div></div></div>
-    <h2>Campaign pending review</h2>{campaigns.length ? <div className="table-wrap"><table><thead><tr><th>Campaign</th><th>Pemilik</th><th>Budget</th><th>URL</th><th>Aksi</th></tr></thead><tbody>{campaigns.map(c => <tr key={c.id}><td>{c.title}<br/><span className="muted">{c.description}</span></td><td>{c.owner.name}<br/><span className="muted">{c.owner.email}</span></td><td>{money(c.budgetRemaining)}</td><td><a href={c.targetUrl} target="_blank" rel="noreferrer">Buka</a></td><td><AdminReview kind="campaigns" id={c.id}/></td></tr>)}</tbody></table></div> : <p>Tidak ada campaign pending.</p>}
-    <h2 style={{ marginTop: 28 }}>Deposit pending</h2>{deposits.length ? <div className="table-wrap"><table><thead><tr><th>Pengguna</th><th>Jumlah</th><th>Metode</th><th>Referensi</th><th>Aksi</th></tr></thead><tbody>{deposits.map(d => <tr key={d.id}><td>{d.user.name}<br/><span className="muted">{d.user.email}</span></td><td>{money(d.amount)}</td><td>{d.method}</td><td>{d.reference}</td><td><AdminReview kind="deposits" id={d.id}/></td></tr>)}</tbody></table></div> : <p>Tidak ada deposit pending.</p>}
-    <h2 style={{ marginTop: 28 }}>Withdrawal pending</h2>{withdrawals.length ? <div className="table-wrap"><table><thead><tr><th>Pengguna</th><th>Jumlah</th><th>Metode</th><th>Tujuan</th><th>Aksi</th></tr></thead><tbody>{withdrawals.map(w => <tr key={w.id}><td>{w.user.name}<br/><span className="muted">{w.user.email}</span></td><td>{money(w.amount)}</td><td>{w.method}</td><td>{w.destination}</td><td><AdminReview kind="withdrawals" id={w.id}/></td></tr>)}</tbody></table></div> : <p>Tidak ada withdrawal pending.</p>}
-  </>;
-}
+import { AdViewer } from '@/components/ad-viewer';
+import Link from 'next/link';
+type Campaign={id:string;title:string;description:string;target_url:string;click_reward:string};
+export default async function AdsPage({searchParams}:{searchParams:Promise<{campaign?:string}>}){const user=await requireUser();const params=await searchParams;if(params.campaign){const result=await db.query<Campaign>('SELECT id,title,description,target_url,click_reward::text FROM campaigns WHERE id=$1 AND status=\'ACTIVE\' AND owner_id<>$2 AND budget_remaining>0',[params.campaign,user.id]);const campaign=result.rows[0];if(!campaign)return <><h1>Iklan tidak tersedia</h1><p>Campaign tidak aktif, budget habis, atau campaign milik Anda.</p><Link href="/ads">Kembali</Link></>;return <><h1>{campaign.title}</h1><p>{campaign.description}</p><p>Reward: <strong>{money(campaign.click_reward)}</strong></p><AdViewer key={campaign.id} campaignId={campaign.id} targetUrl={campaign.target_url}/><p><Link href="/ads">Kembali ke daftar iklan</Link></p></>;}const list=await db.query<Campaign>('SELECT id,title,description,target_url,click_reward::text FROM campaigns WHERE status=\'ACTIVE\' AND owner_id<>$1 AND budget_remaining>0 ORDER BY created_at DESC LIMIT 50',[user.id]);return <><h1>Iklan tersedia</h1><p>Satu campaign hanya dapat menghasilkan satu reward per akun per hari. Buka iklan, tunggu timer, lalu klaim reward.</p>{list.rowCount?<div className="grid">{list.rows.map(c=><article className="card" key={c.id}><h2>{c.title}</h2><p>{c.description}</p><p>Reward per view: <strong>{money(c.click_reward)}</strong></p><Link className="button" href={`/ads?campaign=${c.id}`}>Lihat iklan</Link></article>)}</div>:<div className="card">Belum ada iklan aktif.</div>}</>;}
