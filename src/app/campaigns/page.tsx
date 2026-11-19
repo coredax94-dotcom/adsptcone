@@ -1,0 +1,5 @@
+import Link from 'next/link';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { money } from '@/lib/format';
+export default async function CampaignsPage() { const user = await requireUser(); const campaigns = await prisma.campaign.findMany({ where: { ownerId: user.id }, orderBy: { createdAt: 'desc' }, include: { _count: { select: { views: true } } } }); return <><h1>Campaign saya</h1><p>Kelola iklan dan pantau jumlah view yang dimulai.</p><div className="actions"><Link className="button" href="/campaigns/new">Buat campaign</Link></div>{campaigns.length ? <div className="table-wrap" style={{ marginTop: 20 }}><table><thead><tr><th>Judul</th><th>Status</th><th>Sisa budget</th><th>Reward/view</th><th>View dimulai</th></tr></thead><tbody>{campaigns.map(c => <tr key={c.id}><td><a href={c.targetUrl} target="_blank" rel="noreferrer">{c.title}</a></td><td>{c.status}</td><td>{money(c.budgetRemaining)}</td><td>{money(c.clickReward)}</td><td>{c._count.views}</td></tr>)}</tbody></table></div> : <div className="card" style={{ marginTop: 20 }}>Anda belum membuat campaign.</div>}</>; }

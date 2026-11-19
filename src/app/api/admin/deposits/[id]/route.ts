@@ -1,0 +1,8 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { Prisma } from '@prisma/client';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import { errorResponse } from '@/lib/http';
+const schema=z.object({status:z.enum(['APPROVED','REJECTED'])});
+export async function PATCH(request:Request,{params}:{params:Promise<{id:string}>}){const admin=await getCurrentUser();if(!admin)return errorResponse('Silakan masuk.',401);if(admin.role!=='ADMIN')return errorResponse('Akses ditolak.',403);const {id}=await params;const parsed=schema.safeParse(await request.json());if(!parsed.success)return errorResponse('Status tidak valid.');try{await prisma.$transaction(async tx=>{const deposit=await tx.deposit.findUnique({where:{id}});if(!deposit||deposit.status!=='PENDING')throw new Error('NOT_PENDING');const changed=await tx.deposit.updateMany({where:{id,status:'PENDING'},data:{status:parsed.data.status,reviewedAt:new Date()}});if(!changed.count)throw new Error('NOT_PENDING');if(parsed.data.status==='APPROVED'){const wallet=await tx.wallet.update({where:{userId:deposit.userId},data:{balance:{increment:deposit.amount}}});await tx.walletTransaction.create({data:{walletId:wallet.id,userId:deposit.userId,amount:deposit.amount,type:'DEPOSIT',description:`Deposit disetujui (${deposit.method})`,idempotencyKey:`deposit:${id}`}});}});return NextResponse.json({ok:true});}catch(e){if(e instanceof Error&&e.message==='NOT_PENDING')return errorResponse('Permintaan sudah diproses atau tidak ditemukan.',409);return errorResponse('Tidak dapat memproses deposit.',500);}}

@@ -1,0 +1,8 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+export function CampaignForm() {
+  const router = useRouter(); const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  async function submit(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setError(''); setBusy(true); const form = event.currentTarget; const data = Object.fromEntries(new FormData(form).entries()); try { const response = await fetch('/api/campaigns', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); const result = await response.json(); if (!response.ok) throw new Error(result.error || 'Gagal membuat campaign'); router.push('/campaigns'); router.refresh(); } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan'); } finally { setBusy(false); } }
+  return <form className="form" onSubmit={submit}><label>Judul campaign<input name="title" required minLength={3} maxLength={100}/></label><label>Deskripsi<textarea name="description" required minLength={10} maxLength={500}/></label><label>URL tujuan<input name="targetUrl" type="url" placeholder="https://example.com" required/></label><label>Total budget (USD)<input name="budget" type="number" min="1" step="0.01" required/></label><label>Reward per tayangan valid (USD)<input name="clickReward" type="number" min="0.01" step="0.01" required/></label><p className="muted">Total budget akan dipotong dari saldo saat campaign dibuat. Campaign berhenti saat budget habis.</p>{error && <div className="notice error">{error}</div>}<button className="button" disabled={busy}>{busy ? 'Menyimpan…' : 'Buat campaign'}</button></form>;
+}
