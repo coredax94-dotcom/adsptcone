@@ -4,7 +4,8 @@ Platform PTC berbasis Next.js, Node.js, TypeScript, PostgreSQL, Prisma, dan Tail
 
 ## Fitur saat ini
 
-- Registrasi/login dengan cookie HTTP-only bertanda tangan.
+- Registrasi/login dengan cookie HTTP-only bertanda tangan dan pembatasan percobaan dasar.
+- Header keamanan browser (CSP dasar, HSTS production, frame protection, dan referrer policy).
 - Wallet dan ledger transaksi yang memakai transaksi database atomic.
 - Deposit manual memakai nomor referensi/bukti teks dan persetujuan admin.
 - Withdrawal manual dengan penahanan saldo sampai diproses admin; penolakan otomatis mengembalikan saldo.
@@ -31,6 +32,6 @@ Platform PTC berbasis Next.js, Node.js, TypeScript, PostgreSQL, Prisma, dan Tail
 4. User mengajukan withdrawal; saldo ditahan ketika permintaan dibuat.
 5. Admin mengirim pembayaran manual di luar aplikasi lalu menyetujui, atau menolak agar saldo dikembalikan.
 
-## Catatan penting
+## Status kesiapan
 
-Versi ini belum dapat disebut production-ready 100% tanpa pengujian di environment PostgreSQL nyata. Sebelum publikasi, wajib menambahkan verifikasi email, reset password, rate limiting, CAPTCHA/anti-fraud yang lebih kuat, upload bukti ke object storage, CSRF/origin protection, backup database, TLS, logging/monitoring, kebijakan privasi, dan review legal. Jangan gunakan sistem untuk traffic palsu, mengakali aturan jaringan iklan, atau konten terlarang.
+Ini adalah MVP yang sudah diperkuat, bukan jaminan keamanan atau kepatuhan 100% tanpa pengujian pada server PostgreSQL nyata. Baca `SECURITY.md` sebelum deployment. Verifikasi email, reset password, MFA, CAPTCHA lanjutan, upload bukti ke object storage, limiter terdistribusi, monitoring, backup, dan review legal masih wajib untuk peluncuran publik.
