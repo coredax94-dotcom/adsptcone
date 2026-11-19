@@ -1,1 +1,1 @@
-Prisma has been removed from the active application. The PostgreSQL schema source is now `/database.sql`; initialization uses `npm run db:init`. Do not use this legacy Prisma schema for new installations. Existing Prisma databases require a planned data export/import; this file is retained only as historical reference.
+Prisma sudah tidak digunakan aplikasi aktif. `database.sql` adalah schema bootstrap SQL. File ini dipertahankan sebagai catatan historis; jangan jalankan Prisma migration atau seed. Seed admin aktif berada di `scripts/seed.ts`.

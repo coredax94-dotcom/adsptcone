@@ -1,6 +1,18 @@
-import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { money } from '@/lib/format';
-type CampaignRow={id:string;title:string;target_url:string;status:string;budget_remaining:string;click_reward:string;views:string};
-export default async function CampaignsPage(){const user=await requireUser();const campaigns=await db.query<CampaignRow>('SELECT c.id,c.title,c.target_url,c.status,c.budget_remaining::text,c.click_reward::text,count(v.id)::text AS views FROM campaigns c LEFT JOIN ad_views v ON v.campaign_id=c.id WHERE c.owner_id=$1 GROUP BY c.id ORDER BY c.created_at DESC',[user.id]);return <><h1>Campaign saya</h1><p>Campaign baru berstatus <strong>PENDING_REVIEW</strong> sampai disetujui admin.</p><div className="actions"><Link className="button" href="/campaigns/new">Buat campaign</Link></div>{campaigns.rowCount?<div className="table-wrap" style={{marginTop:20}}><table><thead><tr><th>Judul</th><th>Status</th><th>Sisa budget</th><th>Reward/view</th><th>View dimulai</th></tr></thead><tbody>{campaigns.rows.map(c=><tr key={c.id}><td><a href={c.target_url} target="_blank" rel="noreferrer">{c.title}</a></td><td>{c.status}</td><td>{money(c.budget_remaining)}</td><td>{money(c.click_reward)}</td><td>{c.views}</td></tr>)}</tbody></table></div>:<div className="card" style={{marginTop:20}}>Anda belum membuat campaign.</div>}</>;}
+import { AdViewer } from '@/components/ad-viewer';
+import Link from 'next/link';
+type Campaign = { id: string; title: string; description: string; target_url: string; click_reward: string };
+export default async function AdsPage({ searchParams }: { searchParams: Promise<{ campaign?: string }> }) {
+  const user = await requireUser();
+  const params = await searchParams;
+  if (params.campaign) {
+    const result = await db.query<Campaign>("SELECT id::text,title,description,target_url,click_reward::text FROM campaigns WHERE id=$1 AND status='ACTIVE' AND owner_id<>$2 AND budget_remaining>0", [params.campaign, user.id]);
+    const campaign = result.rows[0];
+    if (!campaign) return <><h1>Iklan tidak tersedia</h1><p>Campaign tidak aktif, budget habis, atau campaign milik Anda.</p><Link href="/ads">Kembali ke daftar iklan</Link></>;
+    return <><h1>{campaign.title}</h1><p>{campaign.description}</p><p>Reward: <strong>{money(campaign.click_reward)}</strong></p><AdViewer key={campaign.id} campaignId={campaign.id} targetUrl={campaign.target_url}/><p><Link href="/ads">Kembali ke daftar iklan</Link></p></>;
+  }
+  const list = await db.query<Campaign>("SELECT id::text,title,description,target_url,click_reward::text FROM campaigns WHERE status='ACTIVE' AND owner_id<>$1 AND budget_remaining>0 ORDER BY created_at DESC LIMIT 50", [user.id]);
+  return <><h1>Iklan tersedia</h1><p>Satu campaign hanya dapat menghasilkan satu reward per akun per hari. Buka iklan, tunggu timer, lalu klaim reward.</p>{list.rowCount ? <div className="grid">{list.rows.map(c=><article className="card" key={c.id}><h2>{c.title}</h2><p>{c.description}</p><p>Reward per view: <strong>{money(c.click_reward)}</strong></p><Link className="button" href={`/ads?campaign=${c.id}`}>Lihat iklan</Link></article>)}</div> : <div className="card">Belum ada iklan aktif.</div>}</>;
+}

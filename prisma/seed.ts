@@ -1,1 +1,2 @@
-This legacy Prisma seed is no longer used. Use `npm run db:seed`, implemented in `/scripts/seed.ts`.
+// Legacy stub only. Prisma is not used. Run `npm run db:seed` for SQL-based admin setup.
+console.log('Legacy Prisma seed disabled. Use npm run db:seed.');
